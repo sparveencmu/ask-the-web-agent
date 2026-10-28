@@ -72,7 +72,3 @@ jupyter lab ask_the_web_agent.ipynb
 ```
 
 The MCP section also needs `mcp-server-fetch` (`uv tool install mcp-server-fetch`) and Node.js for the filesystem server.
-
-## Acknowledgments
-
-Built as part of the [ByteByteGo](https://bytebytego.com/) AI Engineering course, which provided the project outline and the diagrams in `assets/`. The implementation and analysis are my own.
