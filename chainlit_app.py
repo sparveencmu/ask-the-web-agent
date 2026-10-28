@@ -3,50 +3,24 @@
 # ---------------------------------------------------------
 
 import chainlit as cl
-from langchain_ollama import ChatOllama
-from langchain.agents import create_agent
-from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
-from ddgs import DDGS
 
-MODEL = "llama3.2:3b"
-# MODEL = "gemma4:e2b"
-# MODEL = "gemma3:1b"
-llm = ChatOllama(model=MODEL, temperature=0)
-
-
-@tool
-def search_web(query: str) -> str:
-    """Search the web for a query and return results."""
-    results = []
-    with DDGS() as ddgs:
-        for r in ddgs.text(query, max_results=5):
-            results.append(f"- {r['title']}: {r['href']}")
-    return "\n".join(results) if results else "No results found."
-
-
-system_prompt = """You are a helpful assistant with access to a web search tool.
-
-Rules:
-- Only search the web for questions that need current, real-time, or factual information you are unsure about.
-- For general knowledge, greetings, or simple questions, answer directly without searching.
-- If a search does not return useful results, answer based on your own knowledge.
-- Give a clear, concise final answer.
-"""
-
-agent = create_agent(llm, [search_web], system_prompt=system_prompt)
+from agent import build_agent
 
 
 @cl.on_chat_start
 async def start():
+    # Built per session: loading the MCP fetch tool is async
+    cl.user_session.set("agent", await build_agent())
     cl.user_session.set("history", [])
     await cl.Message(
-        content="Welcome! I'm a web search agent. Ask me anything and I'll search the web to find answers."
+        content="Welcome! I'm a web research agent. Ask me anything and I'll search the web, read the most relevant pages, and answer with sources."
     ).send()
 
 
 @cl.on_message
 async def handle_message(message: cl.Message):
+    agent = cl.user_session.get("agent")
     history = cl.user_session.get("history", [])
     history.append(HumanMessage(content=message.content))
 
@@ -64,10 +38,10 @@ async def handle_message(message: cl.Message):
                             s.output = f"```\n{tc['args']}\n```"
 
                 elif isinstance(msg, ToolMessage):
-                    content = msg.content
+                    content = msg.content if isinstance(msg.content, str) else str(msg.content)
                     if len(content) > 1000:
                         content = content[:1000] + "..."
-                    async with cl.Step(name="Tool results") as s:
+                    async with cl.Step(name=f"Tool results: {msg.name}") as s:
                         s.output = f"```\n{content}\n```"
 
                 elif isinstance(msg, AIMessage) and msg.content:

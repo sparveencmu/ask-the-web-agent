@@ -1,5 +1,5 @@
 # Ask-the-Web Agent
 
-A local tool-calling agent (Llama 3.2 3B via Ollama) that decides when to search the web.
+A research agent that searches the web, reads the most relevant pages, and answers with sources.
 
-Ask a question that needs current information, like *"What's happening in San Francisco this week?"*, and expand the **tool** steps to see the search calls and results the agent used.
+Ask a question that needs current information, like *"What are the main new features in Python 3.14?"*, and expand the **tool** steps to see each search and page the agent read.
