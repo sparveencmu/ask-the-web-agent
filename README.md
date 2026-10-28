@@ -1,6 +1,6 @@
 # Ask-the-Web Agent
 
-A tool-calling AI agent that decides for itself when a question needs fresh information, searches the web, and answers from the results. Built in layers: first tool calling by hand (prompting and parsing), then with LangChain agents, then with tools discovered dynamically over the **Model Context Protocol (MCP)**, and finally a Chainlit chat UI that shows each tool call as it happens. Everything runs locally on open-weight models through Ollama.
+A tool-calling AI agent that decides for itself when a question needs fresh information, searches the web, and answers from the results. Built in layers: first tool calling by hand (prompting and parsing), then with LangChain agents, then with tools discovered dynamically over the **Model Context Protocol (MCP)**, and finally a Chainlit chat UI that shows each tool call as it happens. The models are open-weight (Llama 3.2 and Gemma 3) and run locally through Ollama; only the tools reach out to the web.
 
 **Stack:** Python · LangChain / LangGraph agents · Ollama (`llama3.2:3b`, `gemma3:1b`) · DuckDuckGo search (`ddgs`) · MCP · Chainlit
 
@@ -10,19 +10,18 @@ A tool-calling AI agent that decides for itself when a question needs fresh info
 flowchart TD
     U[User question] --> UI[Chainlit chat UI]
     UI --> AG[LangChain agent<br/>llama3.2:3b via Ollama]
-    AG -->|needs current info?| D{Decide}
-    D -->|no| ANS[Answer directly]
+    AG --> D{Needs a tool?}
     D -->|yes| TC[Tool call]
     TC --> WS[search_web<br/>DuckDuckGo]
-    TC --> MCP[MCP servers<br/>fetch · filesystem]
+    TC -.->|notebook| MCP[MCP fetch server]
     WS --> OBS[Tool results]
-    MCP --> OBS
-    OBS --> AG
-    AG --> ANS
+    MCP -.-> OBS
+    OBS -->|back to the agent| AG
+    D -->|no| ANS[Final answer]
     ANS --> UI
 ```
 
-The agent runs a reason → act → observe loop (ReAct): the model either answers or emits a structured tool call, the tool runs, and the result goes back to the model until it can answer.
+The agent runs a reason → act → observe loop (ReAct): the model either answers or emits a structured tool call, the tool runs, and the result goes back to the model, repeating until it can answer. The Chainlit app uses web search; the dotted path is the MCP fetch tool, which the notebook connects to an agent in the same way.
 
 ## What I built, layer by layer
 
@@ -30,7 +29,7 @@ The agent runs a reason → act → observe loop (ReAct): the model either answe
 2. **Automatic tool schemas.** A `to_schema()` helper uses `inspect.signature` and docstrings to generate JSON schemas from Python functions, instead of hand-writing tool descriptions.
 3. **LangChain agents.** I switched to `@tool` and `create_agent` with native tool calling, which removes the prompt-and-parse plumbing.
 4. **Web search agent.** A `search_web` tool (DuckDuckGo, no API key) plus a streaming runner that prints each reasoning step: which tool was chosen, with what arguments, and what came back.
-5. **MCP integration.** Connected to two MCP servers (`mcp-server-fetch` and the filesystem server) and listed their tools at runtime. Then loaded them into the same agent with `langchain-mcp-adapters`, so it could fetch and summarize a live web page.
+5. **MCP integration.** Connected to two MCP servers (`mcp-server-fetch` and the filesystem server) and listed their tools at runtime. Then loaded the fetch server's tool into an agent with `langchain-mcp-adapters`, using the same `create_agent` setup as before, so it could fetch and summarize a live web page.
 6. **Chainlit UI.** A chat interface with conversation history that shows each tool call and its (truncated) results as expandable steps.
 
 ## Design decisions
